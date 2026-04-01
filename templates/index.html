@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Ultra AI Sign Language System</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body{
+    margin:0;
+    padding:0;
+    font-family:'Orbitron',sans-serif;
+    text-align:center;
+    color:#00ffff;
+
+    background:
+    linear-gradient(rgba(0,0,0,0.85),rgba(0,0,0,0.9)),
+    url("https://images.unsplash.com/photo-1549921296-3c0a6a7f4c6b");
+
+    background-size:cover;
+    background-position:center;
+    background-attachment:fixed;
+}
+
+h1{
+    font-size:40px;
+    margin-top:20px;
+    color:#00ffff;
+    text-shadow:
+    0 0 10px #00ffff,
+    0 0 20px #00ffff,
+    0 0 40px #00ffff;
+}
+
+h2{
+    color:#ff00ff;
+    text-shadow:0 0 10px #ff00ff;
+}
+
+/* PANELS */
+
+.panel{
+    background:rgba(0,0,0,0.7);
+    border:1px solid #00ffff;
+    border-radius:10px;
+    padding:20px;
+    margin:20px;
+    box-shadow:
+    0 0 10px #00ffff,
+    inset 0 0 10px #00ffff;
+}
+
+/* CAMERA + CANVAS */
+
+video, canvas{
+    width:420px;
+    height:320px;
+    margin:10px;
+    border-radius:12px;
+
+    border:2px solid #00ffff;
+
+    box-shadow:
+    0 0 10px #00ffff,
+    0 0 20px #ff00ff,
+    inset 0 0 20px #00ffff;
+
+    background:black;
+}
+
+/* BUTTONS */
+
+button{
+    padding:12px 25px;
+    margin:10px;
+    border:none;
+    border-radius:8px;
+
+    background:#00ffff;
+    color:black;
+    font-weight:bold;
+    font-family:'Orbitron';
+
+    cursor:pointer;
+
+    transition:0.3s;
+}
+
+button:hover{
+    background:#ff00ff;
+    color:white;
+
+    box-shadow:
+    0 0 10px #ff00ff,
+    0 0 20px #ff00ff,
+    0 0 40px #ff00ff;
+
+    transform:scale(1.05);
+}
+
+/* INPUT FIELD */
+
+input{
+    padding:10px;
+    width:250px;
+    border-radius:6px;
+    border:1px solid #00ffff;
+
+    background:black;
+    color:#00ffff;
+    font-family:'Orbitron';
+
+    box-shadow:0 0 10px #00ffff inset;
+}
+
+/* DETECTED WORD */
+
+#detectedWord{
+    font-size:28px;
+    color:#00ff9c;
+
+    text-shadow:
+    0 0 10px #00ff9c,
+    0 0 20px #00ff9c;
+}
+
+/* CONFIDENCE BAR */
+
+#confidenceBar{
+    width:300px;
+    height:20px;
+
+    margin:auto;
+
+    border:1px solid #00ffff;
+
+    background:black;
+
+    box-shadow:0 0 10px #00ffff inset;
+}
+
+#confidence {
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#00ffff,#ff00ff);
+}
+/* NEON DIVIDER */
+
+hr{
+    border:none;
+    height:2px;
+
+    background:linear-gradient(90deg,#00ffff,#ff00ff,#00ffff);
+
+    margin:40px 0;
+
+    box-shadow:0 0 10px #00ffff;
+}
+
+/* CYBER CORNER ICONS */
+
+.corner{
+    position:fixed;
+    width:80px;
+    opacity:0.5;
+}
+
+.corner.top-left{
+    top:20px;
+    left:20px;
+}
+
+.corner.bottom-right{
+    bottom:20px;
+    right:20px;
+}
+
+/* CYBER SCANNER ANIMATION */
+
+@keyframes scan{
+
+0%{
+box-shadow:0 0 10px #00ffff;
+}
+
+50%{
+box-shadow:0 0 40px #ff00ff;
+}
+
+100%{
+box-shadow:0 0 10px #00ffff;
+}
+
+}
+
+video{
+animation:scan 3s infinite;
+}
+
+/* ROBOT IMAGE */
+
+.robot{
+    width:250px;
+    margin-top:20px;
+    filter:drop-shadow(0 0 15px #00ffff);
+}
+
+
+</style>
+
+</head>
+
+<body>
+    
+<h1> AI Sign Language Communication System</h1>
+
+<div class="container">
+
+<div>
+<h3>Camera Feed</h3>
+<video id="video" autoplay></video>
+</div>
+
+<div>
+<h3>Hand Detection</h3>
+<canvas id="canvas"></canvas>
+</div>
+
+</div>
+
+<br>
+
+<button onclick="startCamera()">Start Camera</button>
+<button onclick="toggleDetect()">Start Detection</button>
+
+<br><br>
+
+<input id="wordInput" placeholder="Enter word">
+
+<button onclick="addSample()">Add Sample</button>
+
+<button onclick="trainModel()">Train Model</button>
+
+<button onclick="saveModel()">Save Model</button>
+
+<button onclick="loadModel()">Load Model</button>
+
+<h2 id="translated">No detection</h2>
+
+<h3>Confidence</h3>
+
+<div id="confidenceBar">
+<div id="confidence"></div>
+</div>
+
+<hr>
+
+<h2>Speech → Text</h2>
+
+<button onclick="startSpeech()">Start Speech</button>
+
+<h3 id="speechText"></h3>
+<button onclick="correctSentenceOffline()">Correct Sentence</button>
+
+<hr>
+
+<h2>Text → Sign Animation</h2>
+
+<input id="sentenceInput" placeholder="Enter sentence">
+
+<button onclick="animateSentence()">Animate Sentence</button>
+
+<br><br>
+
+<input type="file" id="imgUpload">
+<input id="imgWord" placeholder="Word for image">
+
+<button onclick="uploadImage()">Upload Image</button>
+
+<br><br>
+
+
+<hr>
+
+<h2>3D Avatar Animation</h2>
+
+<div id="animationArea"></div>
+
+
+<div id="avatar3d" style="width:400px;height:300px;margin:auto"></div>
+<script>
+    
+// ================= GLOBAL =================
+let sentence = []
+let lastSpokenWord = ""
+let lastPrediction = ""
+let stableCount = 0
+let lastAddTime = 0
+
+let lastHandLandmarks = null
+let lastPoseLandmarks = null
+
+let dataset = {}
+let labels = []
+let model = null
+let detecting = false
+
+let lastFaceLandmarks = null
+
+let lastFaceTime = 0
+
+let currentEmotion = "😐 Neutral"
+
+let wordImages = {}
+
+const video = document.getElementById("video")
+const canvas = document.getElementById("canvas")
+const ctx = canvas.getContext("2d")
+
+// ================= LOAD MEDIAPIPE POSE =================
+const pose = new Pose({
+    locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+})
+
+pose.setOptions({
+    modelComplexity: 0,
+    smoothLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+})
+
+pose.onResults((res) => {
+    lastPoseLandmarks = res.poseLandmarks
+})
+
+// ================= LOAD HAND =================
+const hands = new Hands({
+    locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+})
+
+hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.6
+})
+
+hands.onResults(onResults)
+
+// ================= CAMERA =================
+function startCamera() {
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream
+
+video.onloadedmetadata = () => {
+    video.play()
+}
+        })
+
+    const camera = new Camera(video, {
+       onFrame: async () => {
+
+    if (video.readyState < 2) return   // ✅ wait for camera
+
+    await hands.send({ image: video })
+    await pose.send({ image: video })
+
+    const now = Date.now()
+    if (now - lastFaceTime > 300) {
+        await faceMesh.send({ image: video })
+        lastFaceTime = now
+    }
+},
+        width: 640,
+        height: 480
+    })
+
+    camera.start()
+}
+
+// ================= FLATTEN (HAND + BODY) ================
+function flattenAll() {
+
+    let arr = []
+
+    // HANDS (2 hands)
+    for (let i = 0; i < 2; i++) {
+
+        if (lastHandLandmarks && lastHandLandmarks[i]) {
+
+            let base = lastHandLandmarks[i][0]
+
+            for (let p of lastHandLandmarks[i]) {
+                arr.push(
+                    p.x - base.x,
+                    p.y - base.y,
+                    p.z - base.z
+                )
+            }
+
+        } else {
+            for (let j = 0; j < 21; j++) arr.push(0, 0, 0)
+        }
+    }
+
+    // BODY POSE (33 points)
+    if (lastPoseLandmarks) {
+
+        let base = lastPoseLandmarks[0]
+
+        for (let p of lastPoseLandmarks) {
+            arr.push(
+                p.x - base.x,
+                p.y - base.y,
+                p.z || 0
+            )
+        }
+
+    } else {
+        for (let i = 0; i < 33; i++) arr.push(0, 0, 0)
+    }
+
+    return arr
+}
+// ================= FACE =================
+const faceMesh = new FaceMesh({
+    locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+})
+
+faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+})
+
+faceMesh.onResults((res) => {
+    if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+        lastFaceLandmarks = res.multiFaceLandmarks[0]
+        detectEmotion()
+    } else {
+        currentEmotion = "😐 Neutral"
+    }
+})
+
+// ================= MAIN =================
+function onResults(res) {
+
+    if (!video.videoWidth || !video.videoHeight) return  // ✅ ADD THIS
+    if (lastFaceLandmarks) {
+    drawLandmarks(ctx, lastFaceLandmarks, { color: "#00FFFF", radius: 1 })
+}
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    // store hand
+    if (res.multiHandLandmarks) {
+        lastHandLandmarks = res.multiHandLandmarks
+    }
+
+    // DRAW HAND
+    if (res.multiHandLandmarks) {
+        for (let lm of res.multiHandLandmarks) {
+            drawConnectors(ctx, lm, HAND_CONNECTIONS, { color: "#00FFFF" })
+            drawLandmarks(ctx, lm, { color: "#FF00FF" })
+        }
+    }
+
+    // DRAW BODY
+    if (lastPoseLandmarks) {
+        drawConnectors(ctx, lastPoseLandmarks, POSE_CONNECTIONS, { color: "#00FF00" })
+        drawLandmarks(ctx, lastPoseLandmarks, { color: "#FFFF00" })
+    }
+
+    // ================= AI DETECTION =================
+    if (detecting && model && labels.length > 0) {
+
+        if (!window.lastTime) window.lastTime = 0
+        const now = Date.now()
+        if (now - window.lastTime < 200) return
+        window.lastTime = now
+
+        const flat = flattenAll()
+
+        tf.tidy(() => {
+
+            const input = tf.tensor2d([flat])
+            const prediction = model.predict(input)
+            const probs = prediction.dataSync()
+
+            let best = 0
+            let index = 0
+
+            for (let i = 0; i < probs.length; i++) {
+                if (probs[i] > best) {
+                    best = probs[i]
+                    index = i
+                }
+            }
+
+            let currentLabel = labels[index]
+
+            // stability
+            if (currentLabel === lastPrediction) {
+                stableCount++
+            } else {
+                stableCount = 1
+                lastPrediction = currentLabel
+            }
+
+            if (best > 0.6 && stableCount >= 2) {
+
+                document.getElementById("translated").innerText =
+    currentLabel + " - " + currentEmotion + " (" + (best * 100).toFixed(1) + "%)"
+
+                document.getElementById("confidence").style.width =
+                    (best * 100) + "%"
+
+                // sentence build
+                if (
+                    currentLabel !== lastSpokenWord &&
+                    Date.now() - lastAddTime > 1500
+                ) {
+                    sentence.push(currentLabel)
+                    lastSpokenWord = currentLabel
+                    lastAddTime = Date.now()
+
+                    document.getElementById("speechText").innerText =
+                        sentence.join(" ")
+                }
+
+            } else {
+                document.getElementById("translated").innerText = "Detecting..."
+            }
+
+        })
+    }
+}
+
+
+function resetSentence(){
+    sentence = []
+    document.getElementById("speechText").innerText = ""
+}
+
+
+// ================= ADD SAMPLE =================
+function addSample() {
+
+    const word = document.getElementById("wordInput").value
+
+    if (!lastHandLandmarks) {
+        alert("No hand detected")
+        return
+    }
+
+    if (!dataset[word]) dataset[word] = []
+
+    const flat = flattenAll()
+    dataset[word].push(flat)
+
+    labels = Object.keys(dataset)
+
+    // 🔥 SEND TO SERVER
+    fetch("/save_samples", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            word: word,
+            sample: flat
+        })
+    })
+
+    alert("Sample added & stored in DB: " + word)
+}
+
+// ================= TRAIN =================
+async function trainModel() {
+
+    labels = Object.keys(dataset)
+
+    let xs = []
+    let ys = []
+
+    labels.forEach((l, i) => {
+        dataset[l].forEach(s => {
+
+            xs.push(s)
+
+            let arr = new Array(labels.length).fill(0)
+            arr[i] = 1
+            ys.push(arr)
+        })
+    })
+
+    const xt = tf.tensor2d(xs)
+    const yt = tf.tensor2d(ys)
+
+    model = tf.sequential()
+
+    model.add(tf.layers.dense({ inputShape: [xt.shape[1]], units: 128, activation: "relu" }))
+    model.add(tf.layers.dense({ units: 64, activation: "relu" }))
+    model.add(tf.layers.dense({ units: labels.length, activation: "softmax" }))
+
+    model.compile({
+        optimizer: "adam",
+        loss: "categoricalCrossentropy",
+        metrics: ["accuracy"]
+    })
+
+    await model.fit(xt, yt, {
+        epochs: 50,
+        shuffle: true
+    })
+
+    alert("Training Done")
+}
+
+async function saveModel(){
+    if (!model) {
+    alert("Train model first")
+    return
+}
+
+   const modelJSON = model.toJSON(null, false)
+
+    const weights = await Promise.all(
+        model.getWeights().map(w => w.array())
+    )
+
+    await fetch("/save_model", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: JSON.stringify(modelJSON),
+            weights: JSON.stringify(weights)
+        })
+    })
+
+    alert("Model saved in MySQL")
+}
+
+// ================= DETECT =================
+function toggleDetect() {
+
+    if (!model) {
+        alert("Train first")
+        return
+    }
+
+    detecting = !detecting
+}
+async function loadModel(){
+
+    const modelJSON = JSON.parse(data.model)
+const weights = JSON.parse(data.weights)
+
+// Load architecture
+model = await tf.models.modelFromJSON(modelJSON)
+
+// Set weights manually
+const tensors = weights.map(w => tf.tensor(w))
+model.setWeights(tensors)
+}
+
+
+async function loadImages(){
+
+const res=await fetch("/get_word_images")
+wordImages=await res.json()
+
+}
+
+loadImages()
+
+
+function animateSentence(){
+
+const text=document.getElementById("sentenceInput").value
+const words=text.split(" ")
+
+let i=0
+const area=document.getElementById("animationArea")
+
+area.innerHTML=""
+
+const interval=setInterval(()=>{
+
+if(i>=words.length){
+clearInterval(interval)
+return
+}
+
+const w=words[i]
+
+if(wordImages[w]){
+
+const img=document.createElement("img")
+img.src=wordImages[w]
+img.className="wordImg"
+
+area.appendChild(img)
+
+}
+
+i++
+
+},1000)
+
+}
+
+
+function uploadImage(){
+
+const file=document.getElementById("imgUpload").files[0]
+const word=document.getElementById("imgWord").value
+
+const reader=new FileReader()
+
+reader.onload=function(){
+
+fetch("/upload_word_image",{
+method:"POST",
+body:new URLSearchParams({
+word:word,
+image:reader.result
+})
+}).then(()=>{
+alert("Image uploaded")
+loadImages()
+})
+
+}
+
+reader.readAsDataURL(file)
+
+}
+
+
+function startSpeech(){
+
+const rec=new webkitSpeechRecognition()
+
+rec.onresult=(e)=>{
+const text=e.results[0][0].transcript
+
+document.getElementById("speechText").innerText=text
+
+document.getElementById("sentenceInput").value=text
+
+}
+
+rec.start()
+
+}
+function detectEmotion(){
+
+    if(!lastFaceLandmarks) return
+
+    // key points
+    const leftMouth = lastFaceLandmarks[61]
+    const rightMouth = lastFaceLandmarks[291]
+    const topLip = lastFaceLandmarks[13]
+    const bottomLip = lastFaceLandmarks[14]
+
+    // width & height
+    const mouthWidth = Math.abs(leftMouth.x - rightMouth.x)
+    const mouthHeight = Math.abs(topLip.y - bottomLip.y)
+
+    // simple logic
+    if(mouthWidth > 0.07 && mouthHeight > 0.03){
+        currentEmotion = "😊 Happy"
+    }
+    else if(mouthWidth < 0.05 && mouthHeight < 0.02){
+        currentEmotion = "😢 Sad"
+    }
+    else{
+        currentEmotion = "😐 Neutral"
+    }
+}
+loadModel()
+
+</script>
+<button onclick="resetSentence()">Reset Sentence</button>
+
+</body>
+</html>
